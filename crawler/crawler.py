@@ -2,10 +2,14 @@
 Crawls myanimelist.net
 
 Collects raw HTML documents as well as the text version of the documents.
+
+Used Ultimate Sitemap Parser 0.5 to parse the myanimelist.net sitemap
+https://pypi.org/project/ultimate-sitemap-parser/
 """
 
 import requests
 from bs4 import BeautifulSoup
+from usp.tree import sitemap_tree_for_homepage
 from urllib.robotparser import RobotFileParser
 from urllib.parse import urlparse, urljoin
 from datetime import datetime, timedelta
@@ -25,16 +29,13 @@ DOCS_RAW_FN = '_docs_raw' # folder name containing all raw HTML documents
 DOCS_CLEANED_FN = '_docs_cleaned' # folder name containing all documents with text extracted from HTML documents
 URL_MAP_FN = 'url_map.dat'
 METADATA_FN = 'metadata.dat'
+SITEMAPS_FN = 'domain_to_urls.dat'
 ADJ_MATRIX_FN = 'adjacency_matrix.csv'
 BACKUP_PERIOD = 100 # how many loops before backing up metadata
-DOCS_COUNT = 101000 # how many documents need to be collected (-1 for until stopped)
+DOCS_COUNT = -1 # how many documents need to be collected (-1 for until stopped)
 DOMAINS = [
-    'myanimelist.net'
-] # Domains containing these strings will be promoted
-SEED_URLS = [
-    'https://myanimelist.net/',
-    'https://myanimelist.net/anime/57611/Kimi_wa_Meido-sama'
-] # Seeded URLs used in the first execution of the program
+    'https://myanimelist.net/'
+]
 
 def dprint(s):
     if DEBUG:
@@ -175,9 +176,9 @@ def save_page(page, url, collisions, url_map):
         with open(f'./{DOCS_RAW_FN}/{fn}', 'w', encoding='UTF-8') as file:
             file.write(str(page.prettify()))
         with open(f'./{DOCS_CLEANED_FN}/{fn}', 'w', encoding='UTF-8') as file:
-            content = page.get_text(separator=' ', strip=True).lower()
-            content = content.translate(str.maketrans('','', string.punctuation))
-            file.write(content)
+            # content = page.get_text(separator=' ', strip=True).lower()
+            # content = content.translate(str.maketrans('','', string.punctuation))
+            file.write(page.get_text())
         url_map[url] = fn
         dprint('Saved page successfully')
         return 1
@@ -185,7 +186,7 @@ def save_page(page, url, collisions, url_map):
         dprint(f'! Encountered error while saving page: {e}')
     return 0
 
-def main():
+def crawl(seed_urls):
     """
     Crawls the web, specifically focusing on 
         the domains listed in the domains list.
@@ -199,7 +200,7 @@ def main():
     stack, touched, adj_dict, collisions, pages_visited, docs_saved, total_time = load_data(
         METADATA_FN
         , default=(
-            SEED_URLS
+            seed_urls
             , set()
             , dict()
             , dict()
@@ -364,9 +365,46 @@ def main():
     print(f'Docs collected: {docs_saved}')
     return adj_dict, total_time
 
-if __name__ == '__main__':
+def parse_sitemaps():
+    """
+    Parse the sitemap of each domain in DOMAINS.
+    Extract the urls from the sitemap and store the domain to urls dictionary.
+    """
+    print('Parsing sitemaps')
+    seed_urls = []
+    domain_to_urls = load_data(SITEMAPS_FN, {})
+    new_info = False
+
+    for domain in DOMAINS:
+        if domain in domain_to_urls:
+            seed_urls += domain_to_urls[domain]
+            continue
+        
+        urls = []
+        count = 0
+        new_info = True
+        tree = sitemap_tree_for_homepage(domain)
+
+        for page in tree.all_pages():
+            urls.append(page.url)
+            count += 1
+
+        domain_to_urls[domain] = urls
+        seed_urls += urls
+        
+        dprint(f'Loaded {count} pages into seed urls from {domain}')
+   
+    if new_info:
+        store_data(domain_to_urls, SITEMAPS_FN)
+   
+    return seed_urls
+
+def main():
+    seed_urls = parse_sitemaps()
+
+    # Start crawling
     print('Starting web crawl')
-    adj_dict, total_time = main()
+    adj_dict, total_time = crawl(seed_urls)
     if not adj_dict is None:
         dprint('Building adjacency matrix...')
         build_adj_matrix(adj_dict)
@@ -374,3 +412,8 @@ if __name__ == '__main__':
     else:
         print('! Unable to build adjaceny matrix (adj_dict is None)')
     print('Exiting...')
+
+
+if __name__ == '__main__':
+    main()
+   
