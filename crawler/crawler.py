@@ -33,6 +33,7 @@ SITEMAPS_FN = 'domain_to_urls.dat'
 ADJ_MATRIX_FN = 'adjacency_matrix.csv'
 BACKUP_PERIOD = 100 # how many loops before backing up metadata
 DOCS_COUNT = -1 # how many documents need to be collected (-1 for until stopped)
+DEFAULT_CRAWL_DELAY = 3
 DOMAINS = [
     'https://myanimelist.net/'
 ]
@@ -107,7 +108,7 @@ def new_domain(url, prev_domain, delay):
         # Determine delay
         crawl_delay = rp.crawl_delay(USER_AGENT)
         if not crawl_delay:
-            crawl_delay = 1
+            crawl_delay = DEFAULT_CRAWL_DELAY
         request_rate = rp.request_rate(USER_AGENT)
         interval = 0
         if request_rate:
