@@ -1,5 +1,6 @@
 from whoosh.index import create_in, open_dir, exists_in
 from whoosh.fields import *
+from whoosh.analysis import StemmingAnalyzer
 from bs4 import BeautifulSoup
 from whoosh.qparser import QueryParser, OrGroup, AndGroup
 import os, pickle
@@ -7,7 +8,7 @@ import os, pickle
 class SearchEngine(object):
 
 	def __init__(self):
-		self.schema = Schema(title=TEXT(stored=True), url = ID(stored=True), content=TEXT())
+		self.schema = Schema(title=TEXT(stored=True), url = ID(stored=True), content=TEXT(analyzer=StemmingAnalyzer()))
 		self.ix = None
 		if not os.path.exists("./indexdir"): os.mkdir("./indexdir")
 		if not exists_in("./indexdir"): self.create_index()
@@ -66,7 +67,7 @@ class SearchEngine(object):
 		
 
 def main():
-	string = "Yona"
+	string = "animes"
 	mySearchEngine = SearchEngine()
 	mySearchEngine.query_search(string)
 	
