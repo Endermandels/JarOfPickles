@@ -29,12 +29,3 @@ def csv_to_matrix(path):
 		for lines in csv_file:
 			matrix.append(lines[1:])
 	return np.array(matrix,dtype=float)
-
-def main():
-	matrix = csv_to_matrix("./sample/adjacency_matrix.csv")
-	matrix = adjacency_to_transition_matrix(matrix)
-	pr = page_rank(matrix, matrix.shape[0])
-	print(pr)
-	
-if __name__ == "__main__":
-	main()
