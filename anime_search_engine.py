@@ -67,8 +67,8 @@ class SearchEngine(object):
 
 	# Combines page rank and bm25 to be used with scoring.FunctionWeighting
 	def __custom_scorer(self, searcher, fieldname, text, matcher):
-		html = list(searcher.documents())[matcher.id()]["url"]
-		pr = self.page_rank[html]
+		url = list(searcher.documents())[matcher.id()]["url"]
+		pr = self.page_rank[url]
 		bm25 = scoring.BM25F().scorer(searcher, fieldname, text).score(matcher)
 		a = 0.5
 		b = 0.5
