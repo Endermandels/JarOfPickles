@@ -125,7 +125,7 @@ def build_adj_matrix(adj_dict):
     """
     urls = adj_dict.keys()
     n = len(urls)
-    adjacency_matrix = np.zeros((n, n), dtype=int)
+    adjacency_matrix = np.zeros((n, n), dtype=np.int8)
 
     # Populate the adjacency matrix
     for i, url in enumerate(urls):
