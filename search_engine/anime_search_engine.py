@@ -65,10 +65,10 @@ class SearchEngine(object):
 
 	# Print the search results
 	def __print_result(self, results_obj):
-		print(results_obj.top_n)
-		print(f"--------------------\n{len(results_obj)} RESULTS")
+		print(f"--------------------\n{results_obj.total} RESULTS")
 		if len(results_obj) == 0: print("No results found")
 		for result in results_obj: print(f"{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n")
+		print(f"PAGE {results_obj.pagenum} of {results_obj.pagecount}")
 		print("--------------------")
 
 	# Combines page rank and bm25 to be used with scoring.FunctionWeighting
@@ -81,20 +81,20 @@ class SearchEngine(object):
 		return a*pr + b*bm25
 
 	# Perform search for a query in the index and print the result
-	def query_search(self, query_string):
+	def query_search(self, query_string, page = 1):
 		print(f"SEARCHING: {query_string}")
 		with self.ix.searcher(weighting=scoring.FunctionWeighting(self.__custom_scorer)) as searcher:
 			# Construct query based on self.conj
 			if self.conj: query = QueryParser("content", self.ix.schema, group=AndGroup).parse(query_string)
 			else: query = QueryParser("content", self.ix.schema, group=OrGroup).parse(query_string)
-			results = searcher.search(query, limit = self.limit)
+			results = searcher.search_page(query, page, pagelen = self.limit)
 			self.__print_result(results)
 		
 
 def main():
 	string = "tokyo"
 	mySearchEngine = SearchEngine()
-	mySearchEngine.query_search(string)
+	mySearchEngine.query_search(string, 1)
 	
 
 if __name__ == "__main__":
