@@ -25,8 +25,6 @@ class SearchEngine(object):
 		self.page_rank = self.__unpickle(page_rank_file)
 		assert self.size == len(self.page_rank), "the index and page rank don't match"
 
-		self.current_search = None
-
 	# Returns an existing or new indexer 
 	def __get_indexer(self):
 		if not os.path.exists(self.index_dir): os.mkdir(self.index_dir)
