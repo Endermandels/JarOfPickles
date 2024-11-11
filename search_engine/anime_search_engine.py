@@ -2,6 +2,7 @@ from whoosh.index import create_in, open_dir, exists_in
 from whoosh.fields import *
 from whoosh.analysis import StemmingAnalyzer
 from whoosh.qparser import QueryParser, OrGroup, AndGroup
+from whoosh.searching import ResultsPage
 from whoosh import scoring
 
 from bs4 import BeautifulSoup
@@ -11,12 +12,13 @@ import os, pickle
 class SearchEngine(object):
 
 	def __init__(self, index_dir = "./indexdir", page_rank_file = "./page_rank.dat", url_map_file = "./sample/url_map.dat", docs_raw_dir = "./sample/_docs_raw/", docs_cleaned_dir = "./sample/_docs_cleaned/"):
+		# File and directory attributes
 		self.index_dir = index_dir
 		self.page_rank_file = page_rank_file
 		self.url_map_file = url_map_file
 		self.docs_raw_dir = docs_raw_dir
 		self.docs_cleaned_dir = docs_cleaned_dir
-
+		# Whoosh index/scoring attributes
 		self.schema = Schema(title=TEXT(stored=True), url = ID(stored=True), content=TEXT(analyzer=StemmingAnalyzer()))
 		self.ix = self.__get_indexer()
 		self.limit = 10 # Number of results displayed
@@ -24,6 +26,10 @@ class SearchEngine(object):
 		self.size = self.ix.doc_count()
 		self.page_rank = self.__unpickle(page_rank_file)
 		assert self.size == len(self.page_rank), "the index and page rank don't match"
+		# Whoosh Paging Attributes
+		self.searcher = self.ix.searcher(weighting=scoring.FunctionWeighting(self.__custom_scorer))
+		self.current_query = None
+		self.current_page = 1
 
 	# Returns an existing or new indexer 
 	def __get_indexer(self):
@@ -63,14 +69,6 @@ class SearchEngine(object):
 		writer.commit()
 		return ix
 
-	# Print the search results
-	def __print_result(self, results_obj):
-		print(f"--------------------\n{results_obj.total} RESULTS")
-		if len(results_obj) == 0: print("No results found")
-		for result in results_obj: print(f"{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n")
-		print(f"PAGE {results_obj.pagenum} of {results_obj.pagecount}")
-		print("--------------------")
-
 	# Combines page rank and bm25 to be used with scoring.FunctionWeighting
 	def __custom_scorer(self, searcher, fieldname, text, matcher):
 		url = list(searcher.documents())[matcher.id()]["url"]
@@ -80,22 +78,54 @@ class SearchEngine(object):
 		b = 0.5
 		return a*pr + b*bm25
 
+	# Prints the page_num page for self.current_query 
+	def print_page(self, page_num):
+		page_result = self.searcher.search_page(self.current_query, page_num)
+		self.current_page = page_result.pagenum
+		print(f"--------------------\n{page_result.total} RESULTS")
+		if page_result.total == 0: print("No results found")
+		for result in page_result: print(f"{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n")
+		print(f"PAGE {page_result.pagenum} of {page_result.pagecount}")
+		print("--------------------")
+
 	# Perform search for a query in the index and print the result
-	def query_search(self, query_string, page = 1):
-		print(f"SEARCHING: {query_string}")
-		with self.ix.searcher(weighting=scoring.FunctionWeighting(self.__custom_scorer)) as searcher:
-			# Construct query based on self.conj
-			if self.conj: query = QueryParser("content", self.ix.schema, group=AndGroup).parse(query_string)
-			else: query = QueryParser("content", self.ix.schema, group=OrGroup).parse(query_string)
-			results = searcher.search_page(query, page, pagelen = self.limit)
-			self.__print_result(results)
-		
+	def submit_query(self, query_string):
+		self.current_page = 1
+		print(f"\"{query_string}\" WAS SUBMITTED")
+		# Construct query based on self.conj
+		if self.conj: self.current_query = QueryParser("content", self.ix.schema, group=AndGroup).parse(query_string)
+		else: self.current_query = QueryParser("content", self.ix.schema, group=OrGroup).parse(query_string)
+
+	# Prints the page one higher than self.current_page for self.current_query
+	def print_next_page(self):
+		if not self.current_query: print("Submit a query")
+		self.current_page += 1
+		self.print_page(self.current_page)
+
+	# Prints the page one lower than self.current_page for self.current_query
+	def print_prev_page(self):
+		if not self.current_query: print("Submit a query")
+		self.current_page -= 1
+		self.print_page(self.current_page)
+
+	# Prints page one for self.current_query
+	def print_first_page(self):
+		if not self.current_query: print("Submit a query")
+		self.current_page = 1
+		self.print_page(self.current_page)
+
+	# Closes the searcher that is opened during initialization
+	def close_searcher(self):
+		self.searcher.close()
+
 
 def main():
-	string = "tokyo"
+	string = "ifaffafa"
 	mySearchEngine = SearchEngine()
-	mySearchEngine.query_search(string, 1)
-	
+	mySearchEngine.submit_query(string)
+	mySearchEngine.print_first_page()
+	mySearchEngine.print_next_page()
+	mySearchEngine.close_searcher()
 
 if __name__ == "__main__":
 	main()
