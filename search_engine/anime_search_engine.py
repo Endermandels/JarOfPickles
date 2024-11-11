@@ -80,13 +80,15 @@ class SearchEngine(object):
 
 	# Prints the page_num page for self.current_query 
 	def print_page(self, page_num):
-		page_result = self.searcher.search_page(self.current_query, page_num)
-		self.current_page = page_result.pagenum
-		print(f"--------------------\n{page_result.total} RESULTS")
-		if page_result.total == 0: print("No results found")
-		for result in page_result: print(f"{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n")
-		print(f"PAGE {page_result.pagenum} of {page_result.pagecount}")
-		print("--------------------")
+		if not self.current_query: print("Submit a query first")
+		else:
+			page_result = self.searcher.search_page(self.current_query, page_num)
+			self.current_page = page_result.pagenum
+			print(f"--------------------\n{page_result.total} RESULTS")
+			if page_result.total == 0: print("No results found")
+			for result in page_result: print(f"{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n")
+			print(f"PAGE {page_result.pagenum} of {page_result.pagecount}")
+			print("--------------------")
 
 	# Perform search for a query in the index and print the result
 	def submit_query(self, query_string):
