@@ -26,10 +26,10 @@ In PowerShell
 There must be a adjacency matrix csv file in "./sample/adjacency_matrix.csv", where the first line is the list of URLs with the first value being empty. Subsequent lines must start with the URL then 0s and 1s.
 
 Ex.
-,	url1,	url2,	url3
-url1,	1,	0,	1
-url2,	0,	1,	1
-url3,	0,	0,	1
+,	url1,	url2,	url3  
+url1,	1,	0,	1  
+url2,	0,	1,	1  
+url3,	0,	0,	1  
 
 
 # Running page_rank.py
@@ -49,21 +49,21 @@ Create a new search engine with SearchEngine()
 
 Submit a query with SearchEngine.submit_query("some_string")
 
-Print the result for the query with
-	SearchEngine.print_page(page_num)
-	SearchEngine.print_first_page()
-	SearchEngine.print_next_page()
-	SearchEngine.print_prev_page()
+Print the result for the query with  
+	SearchEngine.print_page(page_num)  
+	SearchEngine.print_first_page()  
+	SearchEngine.print_next_page()  
+	SearchEngine.print_prev_page()  
 
 You must close the searcher after with SearchEngine.close_searcher()
 
-Ex.
-	string = "tokyo"
-	mySearchEngine = SearchEngine()
-	mySearchEngine.submit_query(string)
-	mySearchEngine.print_first_page()
-	mySearchEngine.print_next_page()
-	mySearchEngine.close_searcher()
+Ex.  
+	string = "tokyo"  
+	mySearchEngine = SearchEngine()  
+	mySearchEngine.submit_query(string)  
+	mySearchEngine.print_first_page()  
+	mySearchEngine.print_next_page()  
+	mySearchEngine.close_searcher()  
 
 
 # Running anime_search_engine.py
