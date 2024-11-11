@@ -98,21 +98,24 @@ class SearchEngine(object):
 
 	# Prints the page one higher than self.current_page for self.current_query
 	def print_next_page(self):
-		if not self.current_query: print("Submit a query")
-		self.current_page += 1
-		self.print_page(self.current_page)
+		if not self.current_query: print("Submit a query first")
+		else:
+			self.current_page += 1
+			self.print_page(self.current_page)
 
 	# Prints the page one lower than self.current_page for self.current_query
 	def print_prev_page(self):
-		if not self.current_query: print("Submit a query")
-		self.current_page -= 1
-		self.print_page(self.current_page)
+		if not self.current_query: print("Submit a query first")
+		else:
+			self.current_page -= 1
+			self.print_page(self.current_page)
 
 	# Prints page one for self.current_query
 	def print_first_page(self):
-		if not self.current_query: print("Submit a query")
-		self.current_page = 1
-		self.print_page(self.current_page)
+		if not self.current_query: print("Submit a query first")
+		else:
+			self.current_page = 1
+			self.print_page(self.current_page)
 
 	# Closes the searcher that is opened during initialization
 	def close_searcher(self):
@@ -120,8 +123,9 @@ class SearchEngine(object):
 
 
 def main():
-	string = "ifaffafa"
+	string = "tokyo"
 	mySearchEngine = SearchEngine()
+	mySearchEngine.print_first_page()
 	mySearchEngine.submit_query(string)
 	mySearchEngine.print_first_page()
 	mySearchEngine.print_next_page()
