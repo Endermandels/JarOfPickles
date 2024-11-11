@@ -4,6 +4,7 @@ from whoosh.analysis import StemmingAnalyzer
 from whoosh.qparser import QueryParser, OrGroup, AndGroup
 from whoosh.searching import ResultsPage
 from whoosh import scoring
+from gensim.models import Word2Vec
 
 from bs4 import BeautifulSoup
 
@@ -11,7 +12,9 @@ import os, pickle
 
 class SearchEngine(object):
 
-	def __init__(self, index_dir = "./indexdir", page_rank_file = "./page_rank.dat", url_map_file = "./sample/url_map.dat", docs_raw_dir = "./sample/_docs_raw/", docs_cleaned_dir = "./sample/_docs_cleaned/"):
+	def __init__(self, index_dir = "./indexdir", page_rank_file = "./page_rank.dat", 
+		url_map_file = "./sample/url_map.dat", docs_raw_dir = "./sample/_docs_raw/", 
+		docs_cleaned_dir = "./sample/_docs_cleaned/", word_2_vec_model="word2vec.model"):
 		# File and directory attributes
 		self.index_dir = index_dir
 		self.page_rank_file = page_rank_file
@@ -30,6 +33,7 @@ class SearchEngine(object):
 		self.searcher = self.ix.searcher(weighting=scoring.FunctionWeighting(self.__custom_scorer))
 		self.current_query = None
 		self.current_page = 1
+		self.word_2_vec_model = word_2_vec_model
 
 	# Returns an existing or new indexer 
 	def __get_indexer(self):
@@ -78,6 +82,33 @@ class SearchEngine(object):
 		b = 0.5
 		return a*pr + b*bm25
 
+	# Performs Word2Vec on the query (currently only applies to first term in query). 
+	# The top k relevant results from the will be searched as a query
+	# and num_results will be printed out.
+	# TODO: Make it so that get_relevant_results applies to all terms in the query.
+	# TODO: Have word_2_vec apply to the top k results of the query instead of the query itself.
+	def get_relevant_results(self, k=3, num_results=10, print_similar_words=True):
+		model = Word2Vec.load(self.word_2_vec_model)
+		terms = list(self.current_query.iter_all_terms())
+		# Hard-coded to only take the first term
+		sims = model.wv.most_similar(terms[0][1])
+		i = 0
+		query = QueryParser("content", self.ix.schema, group=AndGroup).parse(sims[0][0])
+		print(f"Searching for {query}")
+		all_relevant_results = self.searcher.search(query)
+		for sim in sims[1:]:
+			query = QueryParser("content", self.ix.schema, group=AndGroup).parse(sim[0])
+			print(f"Searching for {query}")
+			relevant_results = self.searcher.search(query)
+			all_relevant_results.upgrade_and_extend(relevant_results)
+			i += 1
+			if i > k: break
+		i = 0
+		for result in all_relevant_results: 
+			print(f'{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n')
+			i += 1
+			if i >= num_results: return
+
 	# Prints the page_num page for self.current_query 
 	def print_page(self, page_num):
 		if not self.current_query: print("Submit a query first")
@@ -86,7 +117,7 @@ class SearchEngine(object):
 			self.current_page = page_result.pagenum
 			print(f"--------------------\n{page_result.total} RESULTS")
 			if page_result.total == 0: print("No results found")
-			for result in page_result: print(f"{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n")
+			for result in page_result: print(f'{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n')
 			print(f"PAGE {page_result.pagenum} of {page_result.pagecount}")
 			print("--------------------")
 
@@ -127,10 +158,10 @@ class SearchEngine(object):
 def main():
 	string = "tokyo"
 	mySearchEngine = SearchEngine()
-	mySearchEngine.print_first_page()
 	mySearchEngine.submit_query(string)
-	mySearchEngine.print_first_page()
-	mySearchEngine.print_next_page()
+	# mySearchEngine.print_first_page()
+	# mySearchEngine.print_next_page()
+	mySearchEngine.get_relevant_results()
 	mySearchEngine.close_searcher()
 
 if __name__ == "__main__":
