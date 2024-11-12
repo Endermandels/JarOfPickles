@@ -1,26 +1,5 @@
 # JarOfPickles
 
-
-# Activating venv
-
-In Linux and MacOS
-
->>> source venv/bin/activate
-
-In cmd.exe
-
->>> venv\Scripts\activate.bat
-
-In PowerShell
-
->>> venv\Scripts\Activate.ps1
-
-
-# Deactivating venv
-
->>> deactivate
-
-
 # Building page_rank.py
 
 There must be a adjacency matrix csv file in "./sample/adjacency_matrix.csv", where the first line is the list of URLs with the first value being empty. Subsequent lines must start with the URL then 0s and 1s.
@@ -70,3 +49,7 @@ Ex.
 
 python3 anime_search_engine.py
 
+
+# Running app.py (front end)
+
+python3 app.py
