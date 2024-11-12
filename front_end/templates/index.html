@@ -1,2 +1,41 @@
-<h1>Jar of Pickles</h1>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Jar of Pickles</title>
+        <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+    </head>
+    <body>
+        <h1>Jar of Pickles</h1>
+
+        <!--
+        hx-get (get from endpoint)
+        hx-trigger (trigger for getting from endpoint)
+        hx-target (id of element to inject HTML into)
+        -->
+
+        <form>
+            <label for="search-bar" hidden>Search Bar</label>
+            <input type="text" id="search-bar" name="q"
+                placeholder="Search" hx-get="/search" 
+                hx-trigger="keyup changed delay:500ms" hx-target="#results">
+        </form>
+
+        <!-- TODO: DELETE -->
+        <table class="table is-fullwidth">
+            <thead>
+                <tr>
+                    <th>c1</th>
+                    <th>c2</th>
+                    <th>c3</th>
+                    <th>c4</th>
+                    <th>c5</th>
+                </tr>
+            </thead>
+            <tbody id="results">
+
+            </tbody>
+        </table>
+    </body>
+</html>
 
