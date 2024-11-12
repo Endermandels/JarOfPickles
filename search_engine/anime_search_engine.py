@@ -34,12 +34,12 @@ class SearchEngine(object):
 	# Returns an existing or new indexer 
 	def __get_indexer(self):
 		if not os.path.exists(self.index_dir): os.mkdir(self.index_dir)
-		if not exists_in(self.index_dir): return self.__create_index(self.index_dir)
+		if not exists_in(self.index_dir): return self.__create_index()
 		else: return open_dir(self.index_dir)
 
 	# Get url map from path file
 	def __unpickle(self, path):
-		data = None;
+		data = None
 		with open(path,"rb") as f:
 			data = pickle.load(f)
 		return data
@@ -77,6 +77,23 @@ class SearchEngine(object):
 		a = 0.5
 		b = 0.5
 		return a*pr + b*bm25
+
+	def return_page(self, page_num):
+		results = {}
+		if not self.current_query: 
+			print("Submit a query first")
+			return results
+		
+		page_result = self.searcher.search_page(self.current_query, page_num)
+		self.current_page = page_result.pagenum
+		
+		results['total'] = page_result.total
+		results['docs'] = []
+		
+		for result in page_result:
+			results['docs'].append({'title': result['title'], 'url': result['url']}) 
+		
+		return results
 
 	# Prints the page_num page for self.current_query 
 	def print_page(self, page_num):
