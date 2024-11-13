@@ -1,7 +1,6 @@
 import os
 import sys
 import inspect
-import signal
 
 # Move CWD to parent dir to have access to search_engine
 # Code from https://stackoverflow.com/questions/714063/importing-modules-from-parent-folder
@@ -27,22 +26,23 @@ def search():
     
     results = []
     
-    if q:
-        dir = 'search_engine'
-        mySearchEngine = SearchEngine(
-            index_dir=f'../{dir}/indexdir/'
-            , page_rank_file=f'../{dir}/page_rank.dat'
-            , url_map_file=f'../{dir}/sample/url_map.dat'
-            , docs_raw_dir=f'../{dir}/sample/_docs_raw/'
-            , docs_cleaned_dir=f'../{dir}/sample/_docs_cleaned/')
+    if q and mySearchEngine:
         mySearchEngine.submit_query(q)
         results = mySearchEngine.return_page(1)['docs']
-        mySearchEngine.close_searcher()
        
     return render_template("search_results.html", results=results)
     
 def start_app():
+    global mySearchEngine
+    dir = 'search_engine'
+    mySearchEngine = SearchEngine(
+        index_dir=f'../{dir}/indexdir/'
+        , page_rank_file=f'../{dir}/page_rank.dat'
+        , url_map_file=f'../{dir}/sample/url_map.dat'
+        , docs_raw_dir=f'../{dir}/sample/_docs_raw/'
+        , docs_cleaned_dir=f'../{dir}/sample/_docs_cleaned/')
     app.run(debug=True)
+    mySearchEngine.close_searcher()
 
 if __name__ == '__main__':
     start_app()
