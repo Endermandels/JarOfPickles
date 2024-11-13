@@ -82,6 +82,8 @@ class SearchEngine(object):
 		if not self.current_query: 
 			print("Submit a query first")
 			return results
+
+		if page_num < 1: page_num = 1
 		
 		page_result = self.searcher.search_page(self.current_query, page_num)
 		self.current_page = page_result.pagenum
@@ -98,6 +100,7 @@ class SearchEngine(object):
 	def print_page(self, page_num):
 		if not self.current_query: print("Submit a query first")
 		else:
+			if page_num < 1: page_num = 1
 			page_result = self.searcher.search_page(self.current_query, page_num)
 			self.current_page = page_result.pagenum
 			print(f"--------------------\n{page_result.total} RESULTS")
@@ -144,10 +147,11 @@ class SearchEngine(object):
 
 
 def main():
-	string = "tokyo"
+	string = "faefafesf"
 	mySearchEngine = SearchEngine(debug = True)
 	mySearchEngine.submit_query(string)
 	print(mySearchEngine.get_first_page())
+	print(mySearchEngine.get_prev_page())
 	mySearchEngine.close_searcher()
 
 if __name__ == "__main__":
