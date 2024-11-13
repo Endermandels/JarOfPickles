@@ -152,6 +152,7 @@ def main():
 	mySearchEngine.submit_query(string)
 	print(mySearchEngine.get_first_page())
 	print(mySearchEngine.get_prev_page())
+	print(mySearchEngine.get_next_page())
 	mySearchEngine.close_searcher()
 
 if __name__ == "__main__":
