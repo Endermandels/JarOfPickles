@@ -163,13 +163,22 @@ class SearchEngine(object):
 	def close_searcher(self):
 		self.searcher.close()
 
+	def get_suggested_query(self, string, last_word_index):
+		autocomplete = AutoComplete(words=self.title_dic)
+		results = autocomplete.search(word=string[last_word_index:], max_cost=3, size=3)
+		if not results: return string
+		result = results[0][0]
+		return string[0:last_word_index]+result
+
+
 	# Modified from fast_autocomplete.demo
 	def demo(self):
 		word_list = []
 		start_of_words = [0]
 		cursor_index = 0
-		autocomplete = AutoComplete(words=self.title_dic)
+
 		results = None
+		suggested_query = ""
 		# demo(autocomplete, max_cost=20, size=1)
 		while (True):
 			pressed = read_single_keypress()
@@ -184,11 +193,8 @@ class SearchEngine(object):
 			    	if (word_list and word_list[-1] == ' ' and char != ' '): start_of_words.pop()
 			# Tab character is pressed, use auto-complete
 			elif pressed == '\x09':
-				results = autocomplete.search(word=''.join(word_list[start_of_words[-1]:]), max_cost=3, size=3)
-				if not results: continue
-				result = list(results[0][0])
 				# Create a list of indices to update start_of_words if the result has space characters
-				indices = [i for i, x in enumerate(result) if x == ' ']
+				indices = [i for i, x in enumerate(list(suggested_query[start_of_words[-1]:])) if x == ' ']
 				if indices:
 					new_indices = []
 					for i in range(len(indices)):
@@ -219,7 +225,9 @@ class SearchEngine(object):
 def main():
 	string = "taiko"
 	mySearchEngine = SearchEngine(debug = True)
-	mySearchEngine.demo()
+	# mySearchEngine.demo()
+	print(mySearchEngine.get_suggested_query("what do ta", 8))
+
 	# mySearchEngine.submit_query(string)
 	# print(mySearchEngine.get_first_page())
 	# print(mySearchEngine.get_prev_page())
@@ -228,5 +236,3 @@ def main():
 
 if __name__ == "__main__":
 	main()
-
-#fjoejfiojaofjao
