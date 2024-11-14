@@ -105,7 +105,7 @@ class SearchEngine(object):
 			self.current_page = page_result.pagenum
 			print(f"--------------------\n{page_result.total} RESULTS")
 			if page_result.total == 0: print("No results found")
-			for result in page_result: print(f"{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n")
+			for result in page_result: print(f'{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n')
 			print(f"PAGE {page_result.pagenum} of {page_result.pagecount}")
 			print("--------------------")
 
@@ -117,7 +117,7 @@ class SearchEngine(object):
 		if self.conj: self.current_query = QueryParser("content", self.ix.schema, group=AndGroup).parse(query_string)
 		else: self.current_query = QueryParser("content", self.ix.schema, group=OrGroup).parse(query_string)
 
-	# Prints the page one higher than self.current_page for self.current_query
+	# Returns an object with page result information for a page one higher than self.current_page for self.current_query
 	def get_next_page(self):
 		if not self.current_query: print("Submit a query first")
 		else:
@@ -125,7 +125,7 @@ class SearchEngine(object):
 			if self.debug: self.print_page(self.current_page)
 			return self.return_page(self.current_page)
 
-	# Prints the page one lower than self.current_page for self.current_query
+	#  Returns an object with page result information for a page one lower than self.current_page for self.current_query
 	def get_prev_page(self):
 		if not self.current_query: print("Submit a query first")
 		else:
@@ -133,7 +133,7 @@ class SearchEngine(object):
 			if self.debug: self.print_page(self.current_page)
 			return self.return_page(self.current_page)
 
-	# Prints page one for self.current_query
+	#  Returns an object with page result information for page one for self.current_query
 	def get_first_page(self):
 		if not self.current_query: print("Submit a query first")
 		else:
