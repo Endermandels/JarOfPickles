@@ -6,19 +6,23 @@ from whoosh.searching import ResultsPage
 from whoosh import scoring
 
 from bs4 import BeautifulSoup
+from fast_autocomplete import AutoComplete, demo
+from fast_autocomplete.misc import *
 
-import os, pickle
+import os, pickle, re
 
 class SearchEngine(object):
 
-	def __init__(self, index_dir = "./indexdir", page_rank_file = "./page_rank.dat", url_map_file = "./sample/url_map.dat", docs_raw_dir = "./sample/_docs_raw/", docs_cleaned_dir = "./sample/_docs_cleaned/", debug = False):
+	def __init__(self, index_dir = "./indexdir", page_rank_file = "./page_rank.dat", url_map_file = "./sample/url_map.dat", docs_raw_dir = "./sample/_docs_raw/", docs_cleaned_dir = "./sample/_docs_cleaned/", title_file = "./titles.dat", debug = False):
 		# File and directory attributes
 		self.index_dir = index_dir
 		self.page_rank_file = page_rank_file
 		self.url_map_file = url_map_file
 		self.docs_raw_dir = docs_raw_dir
 		self.docs_cleaned_dir = docs_cleaned_dir
+		self.title_file = title_file
 		# Whoosh index/scoring attributes
+		self.title_dic = {}
 		self.schema = Schema(title=TEXT(stored=True), url = ID(stored=True), content=TEXT(analyzer=StemmingAnalyzer()))
 		self.ix = self.__get_indexer()
 		self.limit = 10 # Number of results displayed
@@ -36,7 +40,10 @@ class SearchEngine(object):
 	def __get_indexer(self):
 		if not os.path.exists(self.index_dir): os.mkdir(self.index_dir)
 		if not exists_in(self.index_dir): return self.__create_index()
-		else: return open_dir(self.index_dir)
+		else:
+			 # Only unpickle titles if we don't index
+			self.title_dic = self.__unpickle("./titles.dat")
+			return open_dir(self.index_dir)
 
 	# Get url map from path file
 	def __unpickle(self, path):
@@ -44,6 +51,12 @@ class SearchEngine(object):
 		with open(path,"rb") as f:
 			data = pickle.load(f)
 		return data
+
+	def clean_title(self, title):
+		title = title.lower().strip()
+		title = re.sub(r"( - \w+ - myanimelist\.net)$", "", title)
+		return title
+
 
 	# Returns a new indexer with a Whoosh Index
 	def __create_index(self):
@@ -53,12 +66,15 @@ class SearchEngine(object):
 		_title = ""
 		_content = ""
 		count = 1
+		self.title_dic = {}
 		# For each url mapped to a file name
 		for u in urls:
 			file_name = urls[u]
 			# Get the title for the file name
 			with open(self.docs_raw_dir+file_name, "r") as html:
 				_title = BeautifulSoup(html.read(), "lxml").title.string.strip()
+				cleaned_title = self.clean_title(_title)
+				self.title_dic[cleaned_title] = {}
 			# Get the text content for the file name
 			with open(self.docs_cleaned_dir+file_name, "r") as text:
 				_content = text.read()
@@ -66,6 +82,9 @@ class SearchEngine(object):
 			writer.add_document(title=_title, url=u, content=_content)
 			count += 1
 		writer.commit()
+		# Pickle a list of titles for future uses
+		with open("titles.dat","wb") as f:
+			pickle.dump(self.title_dic,f)
 		return ix
 
 	# Combines page rank and bm25 to be used with scoring.FunctionWeighting
@@ -145,15 +164,65 @@ class SearchEngine(object):
 	def close_searcher(self):
 		self.searcher.close()
 
+	# Modified from fast_autocomplete.demo
+	def demo(self):
+		word_list = []
+		start_of_words = [0]
+		cursor_index = 0
+		autocomplete = AutoComplete(words=self.title_dic)
+		results = None
+		# demo(autocomplete, max_cost=20, size=1)
+		while (True):
+			pressed = read_single_keypress()
+			# Exit with ctrl+c
+			if pressed == '\x03': break # \x03 is ctrl+c
+			# Backspace character is pressed
+			elif pressed == '\x7f':
+			    if word_list:
+			    	cursor_index -= 1
+			    	char = word_list.pop()
+			    	# Update the start_of_words if a word is deleted
+			    	if (word_list and word_list[-1] == ' ' and char != ' '): start_of_words.pop()
+			# Tab character is pressed, use auto-complete
+			elif pressed == '\x09':
+				results = autocomplete.search(word=''.join(word_list[start_of_words[-1]:]), max_cost=3, size=3)
+				if not results: continue
+				result = list(results[0][0])
+				# Create a list of indices to update start_of_words if the result has space characters
+				indices = [i for i, x in enumerate(result) if x == ' ']
+				if indices:
+					new_indices = []
+					for i in range(len(indices)):
+						if i+1 < len(indices) and indices[i+1] == indices[i]+1: continue
+						new_indices.append(indices[i])
+					if indices[-1] == len(result)-1: new_indices.pop()
+					indices = [x+1+start_of_words[-1] for x in indices]
+				# Replace the last word with the result
+				word_list = word_list[0:start_of_words[-1]] + result
+				cursor_index = start_of_words[-1]+len(result)
+				start_of_words += indices
+			else:
+				if word_list and word_list[-1] == ' ' and pressed != ' ': start_of_words.append(cursor_index)
+				word_list.append(pressed)
+				cursor_index += 1
+
+			print(chr(27) + "[2J")
+			print(''.join(word_list)+"_")
+			print("Last word:", start_of_words[-1])
+			print("Current cursor:", cursor_index)
+			print(''.join(word_list[start_of_words[-1]:]))
+			print(results)
+
 
 def main():
-	string = "faefafesf"
+	string = "taiko"
 	mySearchEngine = SearchEngine(debug = True)
-	mySearchEngine.submit_query(string)
-	print(mySearchEngine.get_first_page())
-	print(mySearchEngine.get_prev_page())
-	print(mySearchEngine.get_next_page())
-	mySearchEngine.close_searcher()
+	mySearchEngine.demo()
+	# mySearchEngine.submit_query(string)
+	# print(mySearchEngine.get_first_page())
+	# print(mySearchEngine.get_prev_page())
+	# print(mySearchEngine.get_next_page())
+	# mySearchEngine.close_searcher()
 
 if __name__ == "__main__":
 	main()
