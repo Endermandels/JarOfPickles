@@ -176,9 +176,9 @@ class SearchEngine(object):
 		word_list = []
 		start_of_words = [0]
 		cursor_index = 0
-
 		results = None
 		suggested_query = ""
+		use_autocomplete = True
 		# demo(autocomplete, max_cost=20, size=1)
 		while (True):
 			pressed = read_single_keypress()
@@ -194,17 +194,18 @@ class SearchEngine(object):
 			# Tab character is pressed, use auto-complete
 			elif pressed == '\x09':
 				# Create a list of indices to update start_of_words if the result has space characters
-				indices = [i for i, x in enumerate(list(suggested_query[start_of_words[-1]:])) if x == ' ']
+				new_string_array = list(suggested_query[start_of_words[-1]:])
+				indices = [i for i, x in enumerate(new_string_array) if x == ' ']
 				if indices:
 					new_indices = []
 					for i in range(len(indices)):
 						if i+1 < len(indices) and indices[i+1] == indices[i]+1: continue
 						new_indices.append(indices[i])
-					if indices[-1] == len(result)-1: new_indices.pop()
+					if indices[-1] == len(new_string_array)-1: new_indices.pop()
 					indices = [x+1+start_of_words[-1] for x in indices]
 				# Replace the last word with the result
-				word_list = word_list[0:start_of_words[-1]] + result
-				cursor_index = start_of_words[-1]+len(result)
+				word_list = word_list[0:start_of_words[-1]] + new_string_array
+				cursor_index = start_of_words[-1]+len(new_string_array)
 				start_of_words += indices
 			else:
 				if word_list and word_list[-1] == ' ' and pressed != ' ': start_of_words.append(cursor_index)
@@ -213,21 +214,21 @@ class SearchEngine(object):
 
 			print(chr(27) + "[2J")
 			query = ''.join(word_list)
+			suggested_query = self.get_suggested_query(query, start_of_words[-1])
 			print(query+"_")
 			print("Last word:", start_of_words[-1])
 			print("Current cursor:", cursor_index)
 			print(''.join(word_list[start_of_words[-1]:]))
 			print(results)
-			self.submit_query(query)
+			if use_autocomplete: self.submit_query(suggested_query)
+			else: self.submit_query(query)
 			self.get_first_page()
 
 
 def main():
 	string = "taiko"
 	mySearchEngine = SearchEngine(debug = True)
-	# mySearchEngine.demo()
-	print(mySearchEngine.get_suggested_query("what do ta", 8))
-
+	mySearchEngine.demo()
 	# mySearchEngine.submit_query(string)
 	# print(mySearchEngine.get_first_page())
 	# print(mySearchEngine.get_prev_page())
