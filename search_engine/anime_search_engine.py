@@ -57,7 +57,6 @@ class SearchEngine(object):
 		title = re.sub(r"( - \w+ - myanimelist\.net)$", "", title)
 		return title
 
-
 	# Returns a new indexer with a Whoosh Index
 	def __create_index(self):
 		ix = create_in(self.index_dir, self.schema)
@@ -207,11 +206,14 @@ class SearchEngine(object):
 				cursor_index += 1
 
 			print(chr(27) + "[2J")
-			print(''.join(word_list)+"_")
+			query = ''.join(word_list)
+			print(query+"_")
 			print("Last word:", start_of_words[-1])
 			print("Current cursor:", cursor_index)
 			print(''.join(word_list[start_of_words[-1]:]))
 			print(results)
+			self.submit_query(query)
+			self.get_first_page()
 
 
 def main():
@@ -222,7 +224,7 @@ def main():
 	# print(mySearchEngine.get_first_page())
 	# print(mySearchEngine.get_prev_page())
 	# print(mySearchEngine.get_next_page())
-	# mySearchEngine.close_searcher()
+	mySearchEngine.close_searcher()
 
 if __name__ == "__main__":
 	main()
