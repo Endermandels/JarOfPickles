@@ -45,4 +45,6 @@ def __pickle_page_rank(csv_path, d=0.85, epsilon = 0.0001):
 	with open("page_rank.dat","wb") as f:
 		pickle.dump(url_to_pr,f)
 
-__pickle_page_rank("./sample/adjacency_matrix.csv")
+	print(url_to_pr)
+
+__pickle_page_rank("./og_sample/adjacency_matrix.csv")
