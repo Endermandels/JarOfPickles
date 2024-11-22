@@ -9,6 +9,11 @@ from bs4 import BeautifulSoup
 
 import os, pickle
 
+# This function is needed because the scoring.FunctionWeighting.FunctionScorer
+# needs a max_quality function.
+def max_quality(self):
+	return 9999
+
 class SearchEngine(object):
 
 	def __init__(self, index_dir = "./indexdir", page_rank_file = "./page_rank.dat", url_map_file = "./sample/url_map.dat", docs_raw_dir = "./sample/_docs_raw/", docs_cleaned_dir = "./sample/_docs_cleaned/", debug = False):
@@ -27,7 +32,10 @@ class SearchEngine(object):
 		self.page_rank = self.__unpickle(page_rank_file)
 		assert self.size == len(self.page_rank), "the index and page rank don't match"
 		# Whoosh Paging Attributes
-		self.searcher = self.ix.searcher(weighting=scoring.FunctionWeighting(self.__custom_scorer))
+		custom_weighting = scoring.FunctionWeighting(self.__custom_scorer)
+		custom_weighting.FunctionScorer.max_quality = max_quality
+		self.searcher = self.ix.searcher(weighting=custom_weighting)
+		self.document_list = list(self.searcher.documents())
 		self.current_query = None
 		self.current_page = 1
 		self.debug = debug
@@ -70,11 +78,11 @@ class SearchEngine(object):
 
 	# Combines page rank and bm25 to be used with scoring.FunctionWeighting
 	def __custom_scorer(self, searcher, fieldname, text, matcher):
-		url = list(searcher.documents())[matcher.id()]["url"]
+		url = self.document_list[matcher.id()]["url"]
 		pr = self.page_rank[url]
 		bm25 = scoring.BM25F().scorer(searcher, fieldname, text).score(matcher)
-		a = 0.5
-		b = 0.5
+		a = 100000 # Most PageRank is 1E-6 place
+		b = 1.5
 		return a*pr + b*bm25
 
 	def return_page(self, page_num):
@@ -147,12 +155,16 @@ class SearchEngine(object):
 
 
 def main():
-	string = "faefafesf"
-	mySearchEngine = SearchEngine(debug = True)
+	string = '"tokyo ghoul"'
+	mySearchEngine = SearchEngine(
+		debug=True,
+		url_map_file="./new_sample/url_map.dat",
+		docs_raw_dir ="./new_sample/_docs_raw/",
+		docs_cleaned_dir="./new_sample/_docs_cleaned/")
 	mySearchEngine.submit_query(string)
-	print(mySearchEngine.get_first_page())
-	print(mySearchEngine.get_prev_page())
-	print(mySearchEngine.get_next_page())
+	mySearchEngine.get_first_page()
+	mySearchEngine.get_next_page()
+	# mySearchEngine.get_next_page()
 	mySearchEngine.close_searcher()
 
 if __name__ == "__main__":
