@@ -18,7 +18,7 @@ def max_quality(self):
 
 class SearchEngine(object):
 
-	def __init__(self, index_dir = "./indexdir", page_rank_file = "./page_rank.dat", url_map_file = "./sample/url_map.dat", docs_raw_dir = "./sample/_docs_raw/", docs_cleaned_dir = "./sample/_docs_cleaned/", title_file = "./titles.dat", debug = False):
+	def __init__(self, index_dir = "./indexdir", page_rank_file = "./page_rank.dat", url_map_file = "./sample/url_map.dat", docs_raw_dir = "./sample/_docs_raw/", docs_cleaned_dir = "./sample/_docs_cleaned/", title_file = "./titles.dat", synonym_file="./synonym.dat", debug = False):
 		# File and directory attributes
 		self.index_dir = index_dir
 		self.page_rank_file = page_rank_file
@@ -26,8 +26,10 @@ class SearchEngine(object):
 		self.docs_raw_dir = docs_raw_dir
 		self.docs_cleaned_dir = docs_cleaned_dir
 		self.title_file = title_file
+		self.synonym_file = synonym_file
 		# Whoosh index/scoring attributes
 		self.title_dic = {}
+		self.synonym_dic = {}
 		self.schema = Schema(title=TEXT(stored=True), url = ID(stored=True), content=TEXT(analyzer=StemmingAnalyzer()))
 		self.ix = self.__get_indexer()
 		self.limit = 10 # Number of results displayed
@@ -43,6 +45,7 @@ class SearchEngine(object):
 		self.current_query = None
 		self.current_page = 1
 		self.debug = debug
+		self.autocomplete = AutoComplete(words=self.title_dic, synonyms=self.synonym_dic)
 
 	# Returns an existing or new indexer 
 	def __get_indexer(self):
@@ -50,7 +53,8 @@ class SearchEngine(object):
 		if not exists_in(self.index_dir): return self.__create_index()
 		else:
 			 # Only unpickle titles if we don't index
-			self.title_dic = self.__unpickle("./titles.dat")
+			self.title_dic = self.__unpickle(self.title_file)
+			self.synonym_dic = self.__unpickle(self.synonym_file)
 			return open_dir(self.index_dir)
 
 	# Get url map from path file
@@ -60,11 +64,6 @@ class SearchEngine(object):
 			data = pickle.load(f)
 		return data
 
-	def clean_title(self, title):
-		title = title.lower().strip()
-		title = re.sub(r"( - \w+ - myanimelist\.net)$", "", title)
-		return title
-
 	# Returns a new indexer with a Whoosh Index
 	def __create_index(self):
 		ix = create_in(self.index_dir, self.schema)
@@ -73,15 +72,12 @@ class SearchEngine(object):
 		_title = ""
 		_content = ""
 		count = 1
-		self.title_dic = {}
 		# For each url mapped to a file name
 		for u in urls:
 			file_name = urls[u]
 			# Get the title for the file name
 			with open(self.docs_raw_dir+file_name, "r") as html:
 				_title = BeautifulSoup(html.read(), "lxml").title.string.strip()
-				cleaned_title = self.clean_title(_title)
-				self.title_dic[cleaned_title] = {}
 			# Get the text content for the file name
 			with open(self.docs_cleaned_dir+file_name, "r") as text:
 				_content = text.read()
@@ -89,9 +85,6 @@ class SearchEngine(object):
 			writer.add_document(title=_title, url=u, content=_content)
 			count += 1
 		writer.commit()
-		# Pickle a list of titles for future uses
-		with open("titles.dat","wb") as f:
-			pickle.dump(self.title_dic,f)
 		return ix
 
 	# Combines page rank and bm25 to be used with scoring.FunctionWeighting
@@ -103,6 +96,7 @@ class SearchEngine(object):
 		b = 1.5
 		return a*pr + b*bm25
 
+	# Returns a dictionary representation of a page result
 	def return_page(self, page_num):
 		results = {}
 		if not self.current_query: 
@@ -123,71 +117,73 @@ class SearchEngine(object):
 		return results
 
 	# Prints the page_num page for self.current_query 
-	def print_page(self, page_num):
-		if not self.current_query: print("Submit a query first")
-		else:
-			if page_num < 1: page_num = 1
-			page_result = self.searcher.search_page(self.current_query, page_num)
-			self.current_page = page_result.pagenum
-			print(f"--------------------\n{page_result.total} RESULTS")
-			if page_result.total == 0: print("No results found")
-			for result in page_result: print(f'{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n')
-			print(f"PAGE {page_result.pagenum} of {page_result.pagecount}")
-			print("--------------------")
+	def print_page(self, result_dic):
+		print(f"--------------------\n{result_dic["total"]} RESULTS")
+		if result_dic["total"] == 0: print("No results found")
+		for result in result_dic["docs"]: print(f'{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n')
+		print(f"PAGE {self.current_page}")
+		print("--------------------")
 
 	# Perform search for a query in the index and print the result
 	def submit_query(self, query_string):
 		self.current_page = 1
 		print(f"\"{query_string}\" WAS SUBMITTED")
 		# Construct query based on self.conj
-		if self.conj: self.current_query = QueryParser("content", self.ix.schema, group=AndGroup).parse(query_string)
-		else: self.current_query = QueryParser("content", self.ix.schema, group=OrGroup).parse(query_string)
+		if self.conj: self.current_query = QueryParser("title", self.ix.schema, group=AndGroup).parse(query_string)
+		else: self.current_query = QueryParser("title", self.ix.schema, group=OrGroup).parse(query_string)
 
 	# Returns an object with page result information for a page one higher than self.current_page for self.current_query
 	def get_next_page(self):
 		if not self.current_query: print("Submit a query first")
 		else:
 			self.current_page += 1
-			if self.debug: self.print_page(self.current_page)
-			return self.return_page(self.current_page)
+			page_result = self.return_page(self.current_page)
+			if self.debug: self.print_page(page_result)
+			return page_result
 
 	#  Returns an object with page result information for a page one lower than self.current_page for self.current_query
 	def get_prev_page(self):
 		if not self.current_query: print("Submit a query first")
 		else:
 			self.current_page -= 1
-			if self.debug: self.print_page(self.current_page)
-			return self.return_page(self.current_page)
+			page_result = self.return_page(self.current_page)
+			if self.debug: self.print_page(page_result)
+			return page_result
 
 	#  Returns an object with page result information for page one for self.current_query
 	def get_first_page(self):
 		if not self.current_query: print("Submit a query first")
 		else:
 			self.current_page = 1
-			if self.debug: self.print_page(self.current_page)
-			return self.return_page(self.current_page)
+			page_result = self.return_page(self.current_page)
+			if self.debug: self.print_page(page_result)
+			return page_result
 
 	# Closes the searcher that is opened during initialization
 	def close_searcher(self):
 		self.searcher.close()
 
-	def get_suggested_query(self, string, last_word_index):
-		autocomplete = AutoComplete(words=self.title_dic)
-		results = autocomplete.search(word=string[last_word_index:], max_cost=3, size=3)
+	def get_suggested_query(self, string, last_word_index, whole_string=False):
+		if whole_string: last_word_index = 0
+		results = self.autocomplete.search(word=string[last_word_index:], max_cost=3, size=1)
 		if not results: return string
-		result = results[0][0]
-		return string[0:last_word_index]+result
+		if whole_string:
+			result = "' ANDMAYBE '".join(results[0])
+			return f"'{result}'"
+		else:
+			result = results[0][0]
+			return string[0:last_word_index]+result
 
 
-	# Modified from fast_autocomplete.demo
+	# Terminal demo modified from fast_autocomplete.demo
 	def demo(self):
 		word_list = []
 		start_of_words = [0]
 		cursor_index = 0
-		results = None
 		suggested_query = ""
 		use_autocomplete = True
-		# demo(autocomplete, max_cost=20, size=1)
+		last_result = None
+		if self.debug: print("Demo started. Type something (exit with ctrl+c)")
 		while (True):
 			pressed = read_single_keypress()
 			# Exit with ctrl+c
@@ -222,24 +218,30 @@ class SearchEngine(object):
 
 			print(chr(27) + "[2J")
 			query = ''.join(word_list)
-			suggested_query = self.get_suggested_query(query, start_of_words[-1])
 			print(query+"_")
 			print("Last word:", start_of_words[-1])
 			print("Current cursor:", cursor_index)
 			print(''.join(word_list[start_of_words[-1]:]))
-			print(results)
-			if use_autocomplete: self.submit_query(suggested_query)
-			else: self.submit_query(query)
-			self.get_first_page()
+			new_suggested_query = self.get_suggested_query(query, start_of_words[-1], whole_string=True)
+			if (True):
+				suggested_query = new_suggested_query
+				if use_autocomplete: self.submit_query(f"({suggested_query}) OR ({query})")
+				else: self.submit_query(query)
+				last_result = self.get_first_page()
+			else:
+				print(f"SUBMITTED {suggested_query} ({query})")
+				print(self.print_page(last_result))
 
 
 def main():
 	string = "faefafesf"
+	print("initializing search engine...")
 	mySearchEngine = SearchEngine(
 		debug=True,
 		url_map_file="./new_sample/url_map.dat",
 		docs_raw_dir ="./new_sample/_docs_raw/",
 		docs_cleaned_dir="./new_sample/_docs_cleaned/")
+	print("starting demo...")
 	mySearchEngine.demo()
 	mySearchEngine.close_searcher()
 
