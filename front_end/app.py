@@ -37,7 +37,9 @@ def start_app():
     dir = 'search_engine'
     mySearchEngine = SearchEngine(
         index_dir=f'../{dir}/indexdir/'
-        , page_rank_file=f'../{dir}/page_rank.dat'
+        , page_rank_file=f'../{dir}/startup_files/page_rank.dat'
+        , titles_file=f'../{dir}/startup_files/titles.dat'
+        , synonyms_file=f'../{dir}/startup_files/synonyms.dat'
         , url_map_file=f'../{dir}/sample/url_map.dat'
         , docs_raw_dir=f'../{dir}/sample/_docs_raw/'
         , docs_cleaned_dir=f'../{dir}/sample/_docs_cleaned/')

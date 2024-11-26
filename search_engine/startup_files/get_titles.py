@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 from threading import Thread
 import pickle, re, os
 
-title_dic = {}
+titles_dic = {}
 
 # Removes clutter from titles
 def clean_title(title):
@@ -30,7 +30,7 @@ def __unpickle(path):
 def get_titles(start, stop, urls, url_list, docs_raw_dir):
 	_title = ""
 	count = 1
-	global title_dic
+	global titles_dic
 
 	for u in url_list[start:stop-1]:
 		file_name = urls[u]
@@ -38,7 +38,7 @@ def get_titles(start, stop, urls, url_list, docs_raw_dir):
 		with open(docs_raw_dir+file_name, "r") as html:
 			_title = BeautifulSoup(html.read(), "lxml").title.string.strip()
 			cleaned_title = clean_title(_title)
-			title_dic[cleaned_title] = {}
+			titles_dic[cleaned_title] = {}
 
 		print(f"({count}) got {cleaned_title}")
 		count += 1
@@ -54,7 +54,7 @@ def main():
 	urls = __unpickle('../new_sample/url_map.dat')
 	url_list = list(urls.keys())
 	total = len(urls)-1
-	global title_dic
+	global titles_dic
 	global synonym_dic
 	for i in range(thread_num):
 		if i == 0:
@@ -80,7 +80,7 @@ def main():
 		thread.join()
 
 	with open("titles.dat","wb") as f:
-		pickle.dump(title_dic,f)
+		pickle.dump(titles_dic,f)
 
 
 if __name__ == '__main__':

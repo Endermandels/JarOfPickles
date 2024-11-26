@@ -21,12 +21,12 @@ class SearchEngine(object):
 	def __init__(
 		self, 
 		index_dir = "./indexdir", 
-		page_rank_file = "./startup_files/page_rank.dat", 
 		url_map_file = "./sample/url_map.dat", 
 		docs_raw_dir = "./sample/_docs_raw/", 
-		docs_cleaned_dir = "./sample/_docs_cleaned/", 
-		title_file = "./startup_files/titles.dat", 
-		synonym_file="./startup_files/synonym.dat", 
+		docs_cleaned_dir = "./sample/_docs_cleaned/",
+		page_rank_file = "./startup_files/page_rank.dat", 
+		titles_file = "./startup_files/titles.dat", 
+		synonyms_file="./startup_files/synonyms.dat", 
 		debug = False
 	):
 		# File and directory attributes
@@ -35,11 +35,11 @@ class SearchEngine(object):
 		self.url_map_file = url_map_file
 		self.docs_raw_dir = docs_raw_dir
 		self.docs_cleaned_dir = docs_cleaned_dir
-		self.title_file = title_file
-		self.synonym_file = synonym_file
+		self.titles_file = titles_file
+		self.synonyms_file = synonyms_file
 		# Whoosh index/scoring attributes
-		self.title_dic = self.__unpickle(self.title_file)
-		self.synonym_dic = self.__unpickle(self.synonym_file)
+		self.titles_dic = self.__unpickle(self.titles_file)
+		self.synonyms_dic = self.__unpickle(self.synonyms_file)
 		self.schema = Schema(title=TEXT(stored=True, analyzer=SimpleAnalyzer()), url = ID(stored=True), content=TEXT(analyzer=StemmingAnalyzer()))
 		self.ix = self.__get_indexer()
 		self.size = self.ix.doc_count()
@@ -53,7 +53,7 @@ class SearchEngine(object):
 		self.document_list = list(self.searcher.documents())
 		self.current_query = None
 		self.current_page = 1
-		self.autocomplete = AutoComplete(words=self.title_dic, synonyms=self.synonym_dic)
+		self.autocomplete = AutoComplete(words=self.titles_dic, synonyms=self.synonyms_dic)
 		self.debug = debug
 
 	# Returns an existing or new indexer 
