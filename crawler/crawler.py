@@ -29,7 +29,7 @@ DOCS_CLEANED_FN = '_docs_cleaned' # folder name containing all documents with te
 URL_MAP_FN = 'url_map.dat'
 METADATA_FN = 'metadata.dat'
 SITEMAPS_FN = 'domain_to_urls.dat'
-ADJ_MATRIX_FN = 'adjacency_matrix.csv'
+ADJ_MATRIX_FN = 'adjacency_matrix.dat'
 BACKUP_PERIOD = 100 # how many loops before backing up metadata
 DOCS_COUNT = -1 # how many documents need to be collected (-1 for until stopped)
 DEFAULT_CRAWL_DELAY = 3
@@ -137,7 +137,7 @@ def build_adj_matrix(adj_dict):
                     adjacency_matrix[i][j] = 1
 
     df = pd.DataFrame(adjacency_matrix, index=urls, columns=urls)
-    df.to_csv(ADJ_MATRIX_FN)
+    store_data(df, ADJ_MATRIX_FN)
     dprint('Created adjaceny matrix successfully')
 
 def save_page(page, url, collisions, url_map):
@@ -282,13 +282,15 @@ def crawl(seed_urls):
                 docs_saved += 1
                 
                 # Add current url to the adjacency dict
-                adj_dict[url] = []
+                adj_dict[url] = set()
 
                 # Parse for new links (DFS)
-                body = page.find(id='bodyContent')
-                if body:
-                    for link in body.find_all('a', href=filter_links):
+                if page:
+                    for link in page.find_all('a', href=filter_links):
                         full_url = urljoin(url, link['href'])
+
+                        # Update adjacency dictionary
+                        adj_dict[url].add(full_url)
 
                         # Skip already seen urls
                         if full_url in touched:
@@ -309,8 +311,6 @@ def crawl(seed_urls):
                         else:
                             stack.insert(0, full_url)
 
-                        # Update adjacency dictionary
-                        adj_dict[url].append(full_url)
 
                 # DEBUG Metadata
                 dprint(f'Length of Stack: {len(stack)}')
@@ -374,7 +374,7 @@ def parse_sitemaps():
     seed_urls = []
     domain_to_urls = load_data(SITEMAPS_FN, {})
     new_info = False
-
+    
     for domain in DOMAINS:
         if domain in domain_to_urls:
             seed_urls += domain_to_urls[domain]
@@ -388,6 +388,8 @@ def parse_sitemaps():
         for page in tree.all_pages():
             urls.append(page.url)
             count += 1
+
+        urls.reverse() # Promote anime and characters first
 
         domain_to_urls[domain] = urls
         seed_urls += urls
