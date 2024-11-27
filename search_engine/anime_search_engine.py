@@ -110,8 +110,8 @@ class SearchEngine(object):
 	def submit_query(self, query_string, upgrade=False):
 		self.current_page = 1
 		self.current_query = query_string
-		if upgrade and self.search_mode == "title": self.current_result = self.get_upgraded_result(query_string)
-		else: self.current_result = self.get_result(query_string)
+		if self.search_mode == "content": upgrade=False
+		self.current_result = self.get_result(query_string, upgrade=upgrade)
 
 		if self.debug: print(f"\"{query_string}\" WAS SUBMITTED")
 
@@ -138,21 +138,17 @@ class SearchEngine(object):
 		if new_mode in allowed_modes: self.search_mode = new_mode
 
 	# Returns a whoosh.searching.results object for a given string
-	def get_result(self, query_string):
-		query_obj = QueryParser(self.search_mode, self.ix.schema).parse(query_string)
-		result = self.searcher.search(query_obj, limit=None)
-		return result
-
-	# Like get_result, but uses whoosh.searching.results.upgrade().
+	# Setting upgrade to True uses whoosh.searching.results.upgrade().
 	# A given string is converted with Fast Autocomplete and used to
 	# upgrade the Fast Autocomplete result.
-	def get_upgraded_result(self, query_string):
+	def get_result(self, query_string, upgrade=False):
+		query_obj = QueryParser(self.search_mode, self.ix.schema).parse(query_string)
+		query_result = self.searcher.search(query_obj, limit=None)
+		if not upgrade: return query_result
+
 		suggested_query = self.get_suggested_query(query_string, 0, whole_string=True)
 		suggested_query_obj = QueryParser(self.search_mode, self.ix.schema).parse(suggested_query)
-		query_obj = QueryParser(self.search_mode, self.ix.schema).parse(query_string)
-		
 		suggested_result = self.searcher.search(suggested_query_obj, limit=None)
-		query_result = self.searcher.search(query_obj, limit=None)
 		suggested_result.upgrade(query_result)
 		return suggested_result
 
@@ -218,6 +214,7 @@ class SearchEngine(object):
 
 # Terminal demo modified from fast_autocomplete.demo
 def demo(search_engine):
+	search_engine.change_search_mode("content")
 	word_list = []
 	start_of_words = [0]
 	cursor_index = 0
