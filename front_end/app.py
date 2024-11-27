@@ -27,7 +27,8 @@ def search():
     results = []
     
     if q and mySearchEngine:
-        mySearchEngine.submit_query(q)
+        # mySearchEngine.submit_query(q)
+        mySearchEngine.submit_query(q, upgrade=True)
         results = mySearchEngine.return_page(1)['docs']
        
     return render_template("search_results.html", results=results)
@@ -38,8 +39,8 @@ def start_app():
     mySearchEngine = SearchEngine(
         index_dir=f'../{dir}/indexdir/'
         , page_rank_file=f'../{dir}/startup_files/page_rank.dat'
-        , titles_file=f'../{dir}/startup_files/titles.dat'
-        , synonyms_file=f'../{dir}/startup_files/synonyms.dat'
+        , titles_json=f'../{dir}/startup_files/titles.json'
+        , synonyms_json=f'../{dir}/startup_files/synonyms.json'
         , url_map_file=f'../{dir}/sample/url_map.dat'
         , docs_raw_dir=f'../{dir}/sample/_docs_raw/'
         , docs_cleaned_dir=f'../{dir}/sample/_docs_cleaned/')

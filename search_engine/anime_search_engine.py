@@ -6,7 +6,7 @@ from whoosh.searching import ResultsPage
 from whoosh import scoring
 
 from bs4 import BeautifulSoup
-from fast_autocomplete import AutoComplete
+from fast_autocomplete import AutoComplete, autocomplete_factory
 from fast_autocomplete.misc import *
 
 import os, pickle, re
@@ -25,8 +25,8 @@ class SearchEngine(object):
 		docs_raw_dir = "./sample/_docs_raw/", 
 		docs_cleaned_dir = "./sample/_docs_cleaned/",
 		page_rank_file = "./startup_files/page_rank.dat", 
-		titles_file = "./startup_files/titles.dat", 
-		synonyms_file="./startup_files/synonyms.dat", 
+		titles_json = "./startup_files/titles.json", 
+		synonyms_json="./startup_files/synonyms.json", 
 		debug = False
 	):
 		# File and directory attributes
@@ -35,11 +35,7 @@ class SearchEngine(object):
 		self.url_map_file = url_map_file
 		self.docs_raw_dir = docs_raw_dir
 		self.docs_cleaned_dir = docs_cleaned_dir
-		self.titles_file = titles_file
-		self.synonyms_file = synonyms_file
 		# Whoosh index/scoring attributes
-		self.titles_dic = self.__unpickle(self.titles_file)
-		self.synonyms_dic = self.__unpickle(self.synonyms_file)
 		self.schema = Schema(title=TEXT(stored=True, analyzer=SimpleAnalyzer()), url = ID(stored=True), content=TEXT(analyzer=StemmingAnalyzer()))
 		self.ix = self.__get_indexer()
 		self.size = self.ix.doc_count()
@@ -49,11 +45,17 @@ class SearchEngine(object):
 		custom_weighting = scoring.FunctionWeighting(self.__custom_scorer)
 		custom_weighting.FunctionScorer.max_quality = max_quality
 		self.searcher = self.ix.searcher(weighting=custom_weighting)
-		self.current_result = None
+		self.search_mode = "title"
 		self.document_list = list(self.searcher.documents())
+		self.current_result = None
 		self.current_query = None
 		self.current_page = 1
-		self.autocomplete = AutoComplete(words=self.titles_dic, synonyms=self.synonyms_dic)
+
+		content_files = {
+			"synonyms": {"filepath": synonyms_json, "compress": False},
+		    "words": {"filepath": titles_json, "compress": True}
+	    }
+		self.autocomplete = autocomplete_factory(content_files=content_files)
 		self.debug = debug
 
 	# Returns an existing or new indexer 
@@ -104,6 +106,56 @@ class SearchEngine(object):
 		b = 1.5
 		return a*pr + b*bm25
 
+	# Updates current_query and current_result for a given string and upgrade option
+	def submit_query(self, query_string, upgrade=False):
+		self.current_page = 1
+		self.current_query = query_string
+		if upgrade and self.search_mode == "title": self.current_result = self.get_upgraded_result(query_string)
+		else: self.current_result = self.get_result(query_string)
+
+		if self.debug: print(f"\"{query_string}\" WAS SUBMITTED")
+
+	# Returns a new query created with Fast Autocomplete from a string.
+	# If only the last word of the string needs to be auto completed,
+	# whole_string should be set to True, and the last_word_index should be
+	# the index of where the first letter of the word begins.
+	def get_suggested_query(self, string, last_word_index, whole_string=False):
+		if whole_string: last_word_index = 0
+		results = self.autocomplete.search(word=string[last_word_index:], max_cost=5, size=3)
+
+		if not results: return string
+		if whole_string:
+			# result = "' OR '".join(results[0])
+			result = "' OR '".join([word for inner_list in results for word in inner_list])
+			return f"'{result}'"
+		else:
+			result = (results[0][0]).strip()
+			return string[0:last_word_index]+result
+
+	# Changes search_mode to a given mode that's in the schema
+	def change_search_mode(self, new_mode):
+		allowed_modes = ["title", "content"]
+		if new_mode in allowed_modes: self.search_mode = new_mode
+
+	# Returns a whoosh.searching.results object for a given string
+	def get_result(self, query_string):
+		query_obj = QueryParser(self.search_mode, self.ix.schema).parse(query_string)
+		result = self.searcher.search(query_obj, limit=None)
+		return result
+
+	# Like get_result, but uses whoosh.searching.results.upgrade().
+	# A given string is converted with Fast Autocomplete and used to
+	# upgrade the Fast Autocomplete result.
+	def get_upgraded_result(self, query_string):
+		suggested_query = self.get_suggested_query(query_string, 0, whole_string=True)
+		suggested_query_obj = QueryParser(self.search_mode, self.ix.schema).parse(suggested_query)
+		query_obj = QueryParser(self.search_mode, self.ix.schema).parse(query_string)
+		
+		suggested_result = self.searcher.search(suggested_query_obj, limit=None)
+		query_result = self.searcher.search(query_obj, limit=None)
+		suggested_result.upgrade(query_result)
+		return suggested_result
+
 	# Returns a dictionary representation of a page result
 	def return_page(self, page_num):
 		results = {}
@@ -131,34 +183,6 @@ class SearchEngine(object):
 		for result in result_dic["docs"]: print(f'{result["title"]}\n\t\033[94m{result["url"]}\033[0m\n')
 		print(f"PAGE {self.current_page}")
 		print("--------------------")
-
-	# Returns a whoosh.searching.results object for a given string
-	def get_result(self, query_string):
-		query_obj = QueryParser("title", self.ix.schema).parse(query_string)
-		result = self.searcher.search(query_obj)
-		return result
-
-	# Like get_result, but uses whoosh.searching.results.upgrade().
-	# A given string is converted with Fast Autocomplete and used to
-	# upgrade the Fast Autocomplete result.
-	def get_upgraded_result(self, query_string):
-		suggested_query = self.get_suggested_query(query_string, 0, whole_string=True)
-		suggested_query_obj = QueryParser("title", self.ix.schema).parse(suggested_query)
-		query_obj = QueryParser("title", self.ix.schema).parse(query_string)
-		
-		suggested_result = self.searcher.search(suggested_query_obj, limit=None)
-		query_result = self.searcher.search(query_obj, limit=None)
-		suggested_result.upgrade(query_result)
-		return suggested_result
-
-	# Updates current_query and current_result for a given string and upgrade option
-	def submit_query(self, query_string, upgrade=False):
-		self.current_page = 1
-		self.current_query = query_string
-		if upgrade: self.current_result = self.get_upgraded_result(query_string)
-		else: self.current_result = self.get_result(query_string)
-
-		if self.debug: print(f"\"{query_string}\" WAS SUBMITTED")
 
 	# Returns a page result dictionary for a page one higher than self.current_page for self.current_query
 	def get_next_page(self):
@@ -190,22 +214,6 @@ class SearchEngine(object):
 	# Closes the searcher that is opened during initialization
 	def close_searcher(self):
 		self.searcher.close()
-
-	# Returns a new query created with Fast Autocomplete from a string.
-	# If only the last word of the string needs to be auto completed,
-	# whole_string should be set to True, and the last_word_index should be
-	# the index of where the first letter of the word begins.
-	def get_suggested_query(self, string, last_word_index, whole_string=False):
-		if whole_string: last_word_index = 0
-		results = self.autocomplete.search(word=string[last_word_index:], max_cost=3, size=3)
-
-		if not results: return string
-		if whole_string:
-			result = "' OR '".join(results[0])
-			return f"'{result}'"
-		else:
-			result = (results[0][0]).strip()
-			return string[0:last_word_index]+result
 
 
 # Terminal demo modified from fast_autocomplete.demo

@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 from threading import Thread
-import pickle, re, os
+import pickle, re, os, json
 
 titles_dic = {}
 
@@ -29,6 +29,7 @@ def __unpickle(path):
 # url_list is a list of urls. docs_raw_dir is the path to _docs_raw
 def get_titles(start, stop, urls, url_list, docs_raw_dir):
 	_title = ""
+	_popularity = 0
 	count = 1
 	global titles_dic
 
@@ -36,16 +37,23 @@ def get_titles(start, stop, urls, url_list, docs_raw_dir):
 		file_name = urls[u]
 		# Get the title for the file name
 		with open(docs_raw_dir+file_name, "r") as html:
-			_title = BeautifulSoup(html.read(), "lxml").title.string.strip()
+			html_parser = BeautifulSoup(html.read(), "lxml")
+			_title = html_parser.title.string
 			cleaned_title = clean_title(_title)
-			titles_dic[cleaned_title] = {}
+			try:
+				_popularity = (html_parser.find("span", class_="numbers popularity").find("strong").text.strip())[1:]
+				_popularity = int(_popularity)
+			except AttributeError:
+				_popularity = 99999
+			titles_dic[cleaned_title] = [None, None, 99999-_popularity]
 
-		print(f"({count}) got {cleaned_title}")
+		print(f"({count}) got {cleaned_title}: {_popularity}")
 		count += 1
 
 # Pickles a dictionary mapping titles to an empty dictionary
 def main():
 	path = os.path.dirname(os.path.realpath(__file__))
+	docs_raw_dir = '../new_sample/_docs_raw/'
 	os.chdir(path)
 
 	thread_num = 8
@@ -55,7 +63,6 @@ def main():
 	url_list = list(urls.keys())
 	total = len(urls)-1
 	global titles_dic
-	global synonym_dic
 	for i in range(thread_num):
 		if i == 0:
 			ranges[0] = total//thread_num
@@ -72,15 +79,15 @@ def main():
 		else:
 			start = ranges[i-1]
 		end = ranges[i]
-		threads[i] = Thread(target = get_titles, args = (start, end, urls, url_list,'./new_sample/_docs_raw/'))
+		threads[i] = Thread(target = get_titles, args = (start, end, urls, url_list, docs_raw_dir))
 	
 	for thread in threads:
 		thread.start()
 	for thread in threads:
 		thread.join()
 
-	with open("titles.dat","wb") as f:
-		pickle.dump(titles_dic,f)
+	with open("titles.json","w") as f:
+		json.dump(titles_dic,f)
 
 
 if __name__ == '__main__':
