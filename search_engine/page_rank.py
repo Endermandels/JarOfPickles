@@ -37,6 +37,5 @@ def __pickle_page_rank(df_path, d=0.85, epsilon = 0.0001):
 	with open("page_rank.dat","wb") as f:
 		pickle.dump(url_to_pr,f)
 
-__pickle_page_rank("./sample/adjacency_matrix.dat")
-
+__pickle_page_rank("../crawler/adj_matrix.dat")
 
