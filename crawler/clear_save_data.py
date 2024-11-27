@@ -31,6 +31,5 @@ def remove_docs(fn):
 if __name__ == "__main__":
     if input('Will delete all save data. Continue? (Y/n) ').lower() == 'y':
         remove_files('dat')
-        remove_files('csv')
         remove_docs('_docs_raw')
         remove_docs('_docs_cleaned')
